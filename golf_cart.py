@@ -1,69 +1,56 @@
 from __future__ import print_function
 import argparse
 import logging
-from threading import Semaphore, Lock, Thread, Condition
-from random import random, randint
+from threading import Semaphore, Lock, Thread
+from random import random
 from time import sleep
-import sys
-import random
-from timeit import Timer
 
 #golf function
-def golfer(bid,bucket_size):
-    global stash,balls_on_field,collect_ball
+def golfer(bid, bucket_size):
+    global stash, balls_on_field, collect_ball
     bucket = 0
     call_cart = False
 
     while True:
         with mutex:
             if  call_cart and stash >= bucket_size:
-                print('Golfer ',bid,'got',bucket_size,'balls; Stash:',stash)
-                stash -= bucket_size                # call for bucket
+                stash -= bucket_size
+                print('Golfer', bid, 'got', bucket_size, 'balls; Stash =', stash)
                 call_cart = False
                 bucket = bucket_size
             else:
                 call_cart = True
 
         if call_cart:
-            print('Golfer',bid,'calling for bucket')
+            print('Golfer', bid, 'calling for bucket')
             with mutex:
-                collect_ball = True
-            condition.acquire()
-            condition.wait()
-            condition.release()
-
-    #            stashEmpty.release()                #Wait for stash to be filled
-#            stash_available.acquire()
+                if stash < bucket_size:
+                    #print('Enabing collect_ball:',collect_ball,'stash',stash)
+                    collect_ball = True
 
         if bucket > 0:
-            for i in range(0,bucket_size):      # for each ball in bucket,
-               with mutex:
-                   balls_on_field += 1   #   swing
-               if collect_ball == True:
-                   condition.acquire()
-                   condition.wait()
-                   condition.release()
-               bucket -=1
-#               print('Golfer',bid,'hit ball',i)
-               print('Golfer' ,bid, 'hit ball',i,' stash:',stash,'field',balls_on_field)
-               sleep(random())
+            for i in range(0, bucket_size):      # for each ball in bucket,
+                with mutex:
+                    balls_on_field += 1   #   swing
+                    bucket -= 1
+                    sleep(random())
+                    print('Golfer', bid, 'hit ball', i)#, ' stash:', stash, 'field', balls_on_field)
 
 #cart function
 def cart():
-    global stash, balls_on_field,collect_ball
+    global stash, balls_on_field, collect_ball
 
     while True:
-#        stashEmpty.acquire()
         with mutex:
             if collect_ball == True:
-               condition.acquire()
-               sleep(random())
-               stash += balls_on_field   # collect balls and deposit in stash
-               condition.notifyAll()
-               condition.release()
-               collect_ball = False
-#            stashEmpty.release()
-#            stash_available.acquire()
+                print('##################################################################')
+                print('Stash = ', stash, '; Cart entering field')
+                stash += balls_on_field   # collect balls and deposit in stash
+                print('Cart done, gathered', balls_on_field, 'balls; Stash', stash)
+                print('##################################################################')
+                sleep(random())
+                balls_on_field = 0
+                collect_ball = False
 
 def program_arguments():
     parser = argparse.ArgumentParser(description='Golf Cart Simulator')
@@ -81,19 +68,16 @@ if __name__ == '__main__':
     global stash
     parser = program_arguments()
     args = parser.parse_args()
-#    simulate(args.stash,args.golfers,args.bucket)
 
     stash_size = args.stash
     golfers = args.golfers
     bucket_size = args.bucket
 
-#    readSwitch = Lightswitch()
+    #    readSwitch = Lightswitch()
     stashEmpty = Semaphore(0)
-    mutex =Lock()
+    mutex = Lock()
     stash_available = Semaphore(0)
-    stop_hitting = False
-    collect_ball = True
-    condition = Condition()
+    collect_ball = False
 
     stash = stash_size
     gthreads = []
